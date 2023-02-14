@@ -46,28 +46,20 @@ func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
 	if localEnv {
 		cfg.APIKey = os.Getenv("ELASTIC_API_KEY")
 	} else {
-		cacertBytes, err := getCACertBytes()
+		cafilePath := os.Getenv("CA_CERT_PATH")
+		cacertBytes, err := os.ReadFile(cafilePath)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to open ca certificate file %v: %v", cafilePath, err)
 		}
 		cfg.CACert = cacertBytes
 	}
 
-	es, err := elasticsearch.NewClient(cfg)
+	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create elastic search client %v", err)
 	}
 
-	return es, nil
-}
-
-func getCACertBytes() ([]byte, error) {
-	cafilePath := os.Getenv("CA_CERT_PATH")
-	data, err := os.ReadFile(cafilePath)
-	if err != nil {
-		return nil, errors.Errorf("Failed to open ca certificate file %v: %v", cafilePath, err)
-	}
-	return data, nil
+	return client, nil
 }
 
 func getAuditData() (map[string]string, error) {
@@ -126,6 +118,7 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	defer file.Close()
 
 	list, _ := file.Readdirnames(1)
