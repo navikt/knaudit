@@ -32,20 +32,86 @@ func main() {
 		panic(err)
 	}
 
-	err = sendToKibana(elasticSearchClient, auditData)
+	index := os.Getenv("ELASTICSEAERCH_INDEX")
+	err = sendToKibana(elasticSearchClient, index, auditData)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// GetLocalIP returns the non loopback local IP of the host
-func GetLocalIP() (string, error) {
+func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
+	cfg := elasticsearch.Config{
+		Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
+	}
+
+	if localEnv {
+		cfg.APIKey = os.Getenv("ELASTIC_API_KEY")
+	} else {
+		cacertBytes, err := getCACertBytes()
+		if err != nil {
+			return nil, err
+		}
+		cfg.CACert = cacertBytes
+	}
+
+	es, err := elasticsearch.NewClient(cfg)
+	if err != nil {
+		return nil, errors.Errorf("Failed to create elastic search client %v", err)
+	}
+
+	return es, nil
+}
+
+func getCACertBytes() ([]byte, error) {
+	cafilePath := os.Getenv("CA_CERT_PATH")
+	data, err := os.ReadFile(cafilePath)
+	if err != nil {
+		return nil, errors.Errorf("Failed to open ca certificate file %v: %v", cafilePath, err)
+	}
+	return data, nil
+}
+
+func getAuditData() (map[string]string, error) {
+	var err error
+	auditData := make(map[string]string)
+
+	auditData["host_name"], err = os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	auditData["ip"], err = getLocalIP()
+	if err != nil {
+		return nil, err
+	}
+
+	auditData["namespace"] = os.Getenv("NAMESPACE")
+	auditData["dag_id"] = os.Getenv("AIRFLOW_DAG_ID")
+	auditData["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
+	auditData["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
+
+	repoPath := os.Getenv("GIT_REPO_PATH")
+	auditData["commit_sha1"], err = getGitCommitSHA1(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	auditData["triggered_at"], err = extractDate(auditData["run_id"])
+	if err != nil {
+		return nil, err
+	}
+
+	return auditData, nil
+}
+
+// getLocalIP returns the non loopback local IP of the host
+func getLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "", err
 	}
 	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
+		// check the address type and if it is not a loopback then return it
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String(), nil
@@ -81,23 +147,20 @@ func extractDate(runID string) (string, error) {
 	return date[0], nil
 }
 
-func sendToKibana(es *elasticsearch.Client, auditData map[string]string) error {
-	// Build the request body.
-	data, err := json.Marshal(auditData)
+func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
+	reqBody, err := json.Marshal(auditData)
 	if err != nil {
-		return errors.Errorf("Error marshaling document: %s", err)
+		return errors.Errorf("Error marshaling audit data: %s", err)
 	}
 
-	d := uuid.New().String()
-	// Set up the request object.
+	documentID := uuid.New().String()
 	req := esapi.IndexRequest{
-		Index:      "tjenestekall-knada-airflow-run-audit",
-		DocumentID: d,
-		Body:       bytes.NewReader(data),
+		Index:      index,
+		DocumentID: documentID,
+		Body:       bytes.NewReader(reqBody),
 		Refresh:    "true",
 	}
 
-	// Perform the request with the client.
 	res, err := req.Do(context.Background(), es)
 	if err != nil {
 		return errors.Errorf("Error getting response: %s", err)
@@ -105,81 +168,14 @@ func sendToKibana(es *elasticsearch.Client, auditData map[string]string) error {
 	defer res.Body.Close()
 
 	if res.IsError() {
-		return errors.Errorf("[%s] Error indexing document ID=%d", res.Status(), d)
+		return errors.Errorf("[%s] Error indexing document ID=%d", res.Status(), documentID)
 	} else {
-		// Deserialize the response into a map.
-		var r map[string]interface{}
-		if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+		var bodyMap map[string]interface{}
+		if err := json.NewDecoder(res.Body).Decode(&bodyMap); err != nil {
 			return errors.Errorf("Error parsing the response body: %s", err)
 		} else {
-			// Print the response status and indexed document version.
-			fmt.Printf("[%s] %s; version=%d", res.Status(), r["result"], int(r["_version"].(float64)))
+			fmt.Printf("[%s] %s; version=%d", res.Status(), bodyMap["result"], int(bodyMap["_version"].(float64)))
 		}
 	}
 	return nil
-}
-
-func getCACertBytes() ([]byte, error) {
-	cafilePath := os.Getenv("CA_CERT_PATH")
-	data, err := os.ReadFile(cafilePath)
-	if err != nil {
-		return nil, errors.Errorf("Failed to open ca certificate file %v: %v", cafilePath, err)
-	}
-	return data, nil
-}
-
-func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
-	cfg := elasticsearch.Config{
-		Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
-	}
-
-	if localEnv {
-		cfg.APIKey = os.Getenv("ELASTIC_API_KEY")
-	} else {
-		cacertBytes, err := getCACertBytes()
-		if err != nil {
-			return nil, err
-		}
-		cfg.CACert = cacertBytes
-	}
-
-	es, err := elasticsearch.NewClient(cfg)
-	if err != nil {
-		return nil, errors.Errorf("Failed to create elastic search client %v", err)
-	}
-
-	return es, nil
-}
-
-func getAuditData() (map[string]string, error) {
-	var err error
-	auditData := make(map[string]string)
-
-	auditData["host_name"], err = os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
-	auditData["ip"], err = GetLocalIP()
-	if err != nil {
-		return nil, err
-	}
-
-	auditData["namespace"] = os.Getenv("NAMESPACE")
-	auditData["dag_id"] = os.Getenv("AIRFLOW_DAG_ID")
-	auditData["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
-	auditData["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
-
-	repoPath := os.Getenv("GIT_REPO_PATH")
-	auditData["commit_sha1"], err = getGitCommitSHA1(repoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	auditData["triggered_at"], err = extractDate(auditData["run_id"])
-	if err != nil {
-		return nil, err
-	}
-
-	return auditData, nil
 }
