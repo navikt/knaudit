@@ -131,7 +131,7 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 }
 
 func extractDate(runID string) (string, error) {
-	regex := regexp.MustCompile("\\d{4,}-\\d{2,}-\\d{2,}T\\d{10,}")
+	regex := regexp.MustCompile("\\d{4}-\\d{2}-\\d{2}T\\d{6}")
 	date := regex.FindString(runID)
 	if date == "" {
 		return "", fmt.Errorf("failed to extract from runID %v", runID)
