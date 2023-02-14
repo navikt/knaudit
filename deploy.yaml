@@ -62,6 +62,9 @@ spec:
       subPath: ca-bundle.pem
   imagePullSecrets:
   - name: ghcr-credentials
+  securityContext:
+    fsGroup: 0
+    runAsUser: 50000
   volumes:
   - emptyDir: {}
     name: dags-data
