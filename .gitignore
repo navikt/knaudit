@@ -1,1 +1,11 @@
+.idea/
+public/
+test-sa.json
+hack/.ipynb_checkpoints/
+.DS_Store
+.env
+*.json
+.tool-versions
+.local/
+*.crt
 *.exe
