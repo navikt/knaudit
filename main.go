@@ -13,7 +13,6 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
-	"github.com/pkg/errors"
 )
 
 func main() {
@@ -56,7 +55,7 @@ func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
 
 	es, err := elasticsearch.NewClient(cfg)
 	if err != nil {
-		return nil, errors.Errorf("Failed to create elastic search client %v", err)
+		return nil, fmt.Errorf("failed to create elastic search client %v", err)
 	}
 
 	return es, nil
@@ -118,7 +117,7 @@ func getLocalIP() (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("No ip address found")
+	return "", fmt.Errorf("no ip address found")
 }
 
 func getGitCommitSHA1(repoPath string) (string, error) {
@@ -150,7 +149,7 @@ func extractDate(runID string) (string, error) {
 func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
 	reqBody, err := json.Marshal(auditData)
 	if err != nil {
-		return errors.Errorf("Error marshaling audit data: %s", err)
+		return fmt.Errorf("error marshaling audit data: %s", err)
 	}
 
 	documentID := uuid.New().String()
@@ -163,16 +162,17 @@ func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]s
 
 	res, err := req.Do(context.Background(), es)
 	if err != nil {
-		return errors.Errorf("Error getting response: %s", err)
+		return fmt.Errorf("error getting response: %s", err)
 	}
+
 	defer res.Body.Close()
 
 	if res.IsError() {
-		return errors.Errorf("[%s] Error indexing document ID=%d", res.Status(), documentID)
+		return fmt.Errorf("[%s] error indexing document ID=%v", res.Status(), documentID)
 	} else {
 		var bodyMap map[string]interface{}
 		if err := json.NewDecoder(res.Body).Decode(&bodyMap); err != nil {
-			return errors.Errorf("Error parsing the response body: %s", err)
+			return fmt.Errorf("error parsing the response body: %s", err)
 		} else {
 			fmt.Printf("[%s] %s; version=%d", res.Status(), bodyMap["result"], int(bodyMap["_version"].(float64)))
 		}
