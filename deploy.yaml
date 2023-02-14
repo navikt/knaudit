@@ -39,15 +39,15 @@ spec:
       value: /etc/pki/tls/certs/ca-bundle.crt
     - name: GIT_REPO_PATH
       value: /dags
-    - nom : AIRFLOW_DAG_ID
+    - name: AIRFLOW_DAG_ID
       valueFrom :
         fieldRef :
           fieldPath : metadata.labels['dag_id']
-    - nom : AIRFLOW_RUN_ID
+    - name: AIRFLOW_RUN_ID
       valueFrom :
         fieldRef :
           fieldPath : metadata.labels['run_id']
-    - nom : AIRFLOW_TASK_ID
+    - name: AIRFLOW_TASK_ID
       valueFrom :
         fieldRef :
           fieldPath : metadata.labels['task_id']
