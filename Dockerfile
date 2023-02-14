@@ -1,5 +1,4 @@
 FROM golang:1.20-alpine as builder
-#RUN apk add --no-cache git make
 ENV GOOS=linux
 WORKDIR /src
 COPY go.sum go.sum
