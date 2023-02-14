@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"strings"
 
 	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -18,88 +17,22 @@ import (
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		fmt.Println("Failed to load .env. Variables injection disabled.")
+	localEnv := godotenv.Load(".env") == nil
+	if localEnv {
+		fmt.Println(".env file found, application is configured to run locally.")
 	}
 
-	//audit data
-	ad := make(map[string]string)
-
-	cfg := elasticsearch.Config{
-		// ...
-		Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
-		APIKey:    os.Getenv("ELASTIC_API_KEY"),
-	}
-
-	cacertBytes, err := getCACertBytes()
-	if err == nil {
-		cfg = elasticsearch.Config{
-			Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
-			CACert:    cacertBytes,
-		}
-	} else {
-		fmt.Println(err)
-	}
-
-	es, err := elasticsearch.NewClient(cfg)
-	if err != nil {
-		panic(errors.Errorf("Failed to create elastic search client %v", err))
-	}
-	res, err := es.Info()
-
-	if err != nil {
-		panic(errors.Errorf("Failed to get elastic search info %v", err))
-	}
-
-	defer res.Body.Close()
-	// Check response status
-	if res.IsError() {
-		panic(errors.Errorf("Error with elastic search info response: %s", res.String()))
-	}
-	var r map[string]interface{}
-	// Deserialize the response into a map.
-	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		panic(errors.Errorf("Error parsing the response body: %s", err))
-	}
-	// Print client and server version numbers.
-	fmt.Printf("Client: %s", elasticsearch.Version)
-	fmt.Printf("Server: %s", r["version"].(map[string]interface{})["number"])
-	fmt.Println(strings.Repeat("~", 37))
-
-	ad["host_name"], err = os.Hostname()
-
+	elasticSearchClient, err := configureElasticSearch(localEnv)
 	if err != nil {
 		panic(err)
 	}
 
-	ad["ip"], err = GetLocalIP()
-
+	auditData, err := getAuditData()
 	if err != nil {
 		panic(err)
 	}
 
-	ad["namespace"] = os.Getenv("NAMESPACE")
-
-	ad["dag_id"] = os.Getenv("AIRFLOW_DAG_ID")
-	ad["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
-	ad["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
-
-	repoPath := os.Getenv("GIT_REPO_PATH")
-	ad["commit_sha1"], err = getGitCommitSHA1(repoPath)
-
-	if err != nil {
-		panic(err)
-	}
-
-	ad["triggered_at"], err = extractDate(ad["run_id"])
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = sendToKibana(es, ad)
-
+	err = sendToKibana(elasticSearchClient, auditData)
 	if err != nil {
 		panic(err)
 	}
@@ -190,7 +123,63 @@ func getCACertBytes() ([]byte, error) {
 	cafilePath := os.Getenv("CA_CERT_PATH")
 	data, err := os.ReadFile(cafilePath)
 	if err != nil {
-		return nil, errors.Errorf("Failed to open ca certificate file %v", err)
+		return nil, errors.Errorf("Failed to open ca certificate file %v: %v", cafilePath, err)
 	}
 	return data, nil
+}
+
+func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
+	cfg := elasticsearch.Config{
+		Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
+	}
+
+	if localEnv {
+		cfg.APIKey = os.Getenv("ELASTIC_API_KEY")
+	} else {
+		cacertBytes, err := getCACertBytes()
+		if err != nil {
+			return nil, err
+		}
+		cfg.CACert = cacertBytes
+	}
+
+	es, err := elasticsearch.NewClient(cfg)
+	if err != nil {
+		return nil, errors.Errorf("Failed to create elastic search client %v", err)
+	}
+
+	return es, nil
+}
+
+func getAuditData() (map[string]string, error) {
+	var err error
+	auditData := make(map[string]string)
+
+	auditData["host_name"], err = os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	auditData["ip"], err = GetLocalIP()
+	if err != nil {
+		return nil, err
+	}
+
+	auditData["namespace"] = os.Getenv("NAMESPACE")
+	auditData["dag_id"] = os.Getenv("AIRFLOW_DAG_ID")
+	auditData["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
+	auditData["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
+
+	repoPath := os.Getenv("GIT_REPO_PATH")
+	auditData["commit_sha1"], err = getGitCommitSHA1(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	auditData["triggered_at"], err = extractDate(auditData["run_id"])
+	if err != nil {
+		return nil, err
+	}
+
+	return auditData, nil
 }
