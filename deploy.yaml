@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+  labels:
+    dag_id: test-k8s-exec
+    run_id: manual__2023-02-13T131127.5671880000-27f960c46
+    task_id: test
+  name: knaudit
+spec:
+  initContainers:
+  - args:
+    - navikt/nada-dags
+    - main
+    - /dags
+    - "60"
+    command:
+    - /bin/sh
+    - /git-clone.sh
+    image: navikt/knada-git-sync:2022-12-08-aaa15ba
+    name: git-clone
+    volumeMounts:
+    - mountPath: /dags
+      name: dags-data
+    - mountPath: /keys
+      name: github-app-secret
+  containers:
+  - name: knaudit
+    env:
+    - name: NAMESPACE
+      valueFrom :
+        fieldRef :
+          fieldPath : metadata.namespace
+    - name: ELASTICSEARCH_URL
+      value: https://log-ingest.adeo.no
+    - name: ELASTICSEAERCH_INDEX
+      value: tjenestekall-knada-airflow-run-audit
+    - name: CA_CERT_PATH
+      value: /etc/pki/tls/certs/ca-bundle.crt
+    - name: GIT_REPO_PATH
+      value: /dags
+    - nom : AIRFLOW_DAG_ID
+      valueFrom :
+        fieldRef :
+          fieldPath : metadata.labels['dag_id']
+    - nom : AIRFLOW_RUN_ID
+      valueFrom :
+        fieldRef :
+          fieldPath : metadata.labels['run_id']
+    - nom : AIRFLOW_TASK_ID
+      valueFrom :
+        fieldRef :
+          fieldPath : metadata.labels['task_id']
+    image: ghcr.io/nais/knaudit:v1
+    imagePullPolicy: Always
+    volumeMounts:
+    - mountPath: /dags
+      name: dags-data
+    - mountPath: /etc/pki/tls/certs/ca-bundle.crt
+      name: ca-bundle-pem
+      readOnly: true
+      subPath: ca-bundle.pem
+  imagePullSecrets:
+  - name: ghcr-credentials
+  volumes:
+  - emptyDir: {}
+    name: dags-data
+  - name: github-app-secret
+    secret:
+      defaultMode: 448
+      secretName: github-app-secret
+  - configMap:
+      defaultMode: 420
+      name: ca-bundle-pem
+    name: ca-bundle-pem
