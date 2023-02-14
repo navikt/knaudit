@@ -139,11 +139,11 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 
 func extractDate(runID string) (string, error) {
 	regex := regexp.MustCompile("\\d{4,}-\\d{2,}-\\d{2,}T\\d{10,}")
-	date := regex.FindAllString(runID, 1)
-	if len(date) < 1 {
-		return "", fmt.Errorf("Failed to extract from runID %v", runID)
+	date := regex.FindString(runID)
+	if date == "" {
+		return "", fmt.Errorf("failed to extract from runID %v", runID)
 	}
-	return date[0], nil
+	return date, nil
 }
 
 func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
