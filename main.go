@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -87,6 +89,11 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
+	auditData["git_repo"], err = getGitRepo(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
 	auditData["triggered_at"], err = extractDate(auditData["run_id"])
 	if err != nil {
 		return nil, err
@@ -128,6 +135,29 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func getGitRepo(repoPath string) (string, error) {
+	gitConfigFilePath := repoPath + "/" + ".git/config"
+	gitConfigFile, err := os.Open(gitConfigFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	defer gitConfigFile.Close()
+
+	gitRepoRegexp := regexp.MustCompile(`url = git@(?P<name>github.com:(navikt|nais)\/.+)\.git`)
+
+	scanner := bufio.NewScanner(gitConfigFile)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if gitRepoRegexp.MatchString(line) {
+			repo := gitRepoRegexp.FindStringSubmatch(line)[1]
+			return strings.Replace(repo, ":", "/", 1), nil
+		}
+	}
+
+	return "", scanner.Err()
 }
 
 func extractDate(runID string) (string, error) {

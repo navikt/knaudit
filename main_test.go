@@ -34,3 +34,36 @@ func Test_extractDate(t *testing.T) {
 		})
 	}
 }
+
+func Test_getGitRepo(t *testing.T) {
+	type args struct {
+		repoPath string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "",
+			args: args{
+				repoPath: ".",
+			},
+			want:    "github.com/nais/knaudit",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getGitRepo(tt.args.repoPath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getGitRepo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("getGitRepo() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
