@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -98,6 +99,8 @@ func getAuditData() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	auditData["timestamp"] = time.Now().String()
 
 	return auditData, nil
 }
