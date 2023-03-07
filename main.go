@@ -15,6 +15,7 @@ import (
 	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 )
 
@@ -84,6 +85,9 @@ func getAuditData() (map[string]string, error) {
 	auditData["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
 	auditData["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
 
+	triggeredBy, err := getTriggeredBy(auditData["dag_id"], auditData["run_id"])
+	auditData["triggered_by"] = triggeredBy
+
 	repoPath := os.Getenv("GIT_REPO_PATH")
 	auditData["commit_sha1"], err = getGitCommitSHA1(repoPath)
 	if err != nil {
@@ -120,6 +124,29 @@ func getLocalIP() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no ip address found")
+}
+
+func getTriggeredBy(dagID, runID string) (string, error) {
+	if strings.HasPrefix(runID, "scheduled") {
+		return "airflow", nil
+	}
+
+	ctx := context.Background()
+	dbURL := os.Getenv("AIRFLOW_DB_URL")
+	db, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close(ctx)
+
+	var owner string
+	err = db.QueryRow(context.Background(), `SELECT owner FROM public.log WHERE dag_id = $1 
+                               AND event = 'trigger' ORDER BY dttm DESC LIMIT 1;`, dagID).Scan(&owner)
+	if err != nil {
+		panic(err)
+	}
+
+	return owner, nil
 }
 
 func getGitCommitSHA1(repoPath string) (string, error) {
