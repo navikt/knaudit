@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  IMAGE: europe-west1-docker.pkg.dev/knada-gcp/knaudit
+
 jobs:
   build:
     name: Build image
@@ -31,4 +34,4 @@ jobs:
       - uses: docker/build-push-action@v4
         with:
           push: true
-          tags: "knada-gcp/knaudit:${{ env.TAG }}"
+          tags: "${{ env.IMAGE }):${{ env.TAG }}"
