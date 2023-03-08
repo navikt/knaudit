@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  IMAGE: europe-west1-docker.pkg.dev/knada-gcp/knaudit
+  IMAGE: europe-west1-docker.pkg.dev/knada-gcp/knaudit/knaudit
 
 jobs:
   build:
