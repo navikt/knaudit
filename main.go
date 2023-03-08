@@ -70,7 +70,7 @@ func getAuditData() (map[string]string, error) {
 	var err error
 	auditData := make(map[string]string)
 
-	auditData["host_name"], err = os.Hostname()
+	auditData["hostname"], err = os.Hostname()
 	if err != nil {
 		return nil, err
 	}
