@@ -176,7 +176,7 @@ func getGitRepo(repoPath string) (string, error) {
 
 	defer gitConfigFile.Close()
 
-	gitRepoRegexp := regexp.MustCompile(`url = git@(?P<name>github.com:(navikt|nais)\/.+)\.git`)
+	gitRepoRegexp := regexp.MustCompile(`url = https:\/\/(?P<name>github.com\/(navikt|nais)\/.+)\.git`)
 
 	scanner := bufio.NewScanner(gitConfigFile)
 	for scanner.Scan() {
