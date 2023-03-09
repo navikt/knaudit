@@ -104,7 +104,7 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
-	auditData["_timestamp"] = time.Now().Format(time.RFC3339)
+	auditData["@timestamp"] = time.Now().Format(time.RFC3339)
 
 	return auditData, nil
 }
