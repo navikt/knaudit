@@ -35,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	index := os.Getenv("ELASTICSEAERCH_INDEX")
+	index := os.Getenv("ELASTICSEARCH_INDEX")
 	err = sendToKibana(elasticSearchClient, index, auditData)
 	if err != nil {
 		panic(err)
@@ -221,7 +221,6 @@ func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]s
 	defer res.Body.Close()
 
 	if res.IsError() {
-		fmt.Println(res.String())
 		return fmt.Errorf("[%s] error indexing document ID=%v", res.Status(), documentID)
 	} else {
 		var bodyMap map[string]interface{}
