@@ -177,6 +177,7 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	scanner := bufio.NewScanner(gitConfigFile)
 	for scanner.Scan() {
 		line := scanner.Text()
+		fmt.Println(line)
 		if gitRepoRegexp.MatchString(line) {
 			repo := gitRepoRegexp.FindStringSubmatch(line)[1]
 			return strings.Replace(repo, ":", "/", 1), nil
