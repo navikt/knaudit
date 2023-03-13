@@ -6,17 +6,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"os"
-	"regexp"
-	"strings"
-	"time"
-
 	"github.com/elastic/go-elasticsearch/esapi"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+	"net"
+	"os"
+	"regexp"
+	"strings"
 )
 
 func main() {
@@ -99,12 +97,10 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
-	auditData["triggered_at"], err = extractDate(auditData["run_id"])
+	auditData["@timestamp"], err = extractDate(auditData["run_id"])
 	if err != nil {
 		return nil, err
 	}
-
-	auditData["@timestamp"] = time.Now().Format(time.RFC3339)
 
 	return auditData, nil
 }
