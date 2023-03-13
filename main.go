@@ -94,7 +94,7 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
-	auditData["git_repo"], err = getGitRepo(repoPath)
+	auditData["git_repo"], err = getGitRepo(repoPath + "/" + ".git/config")
 	if err != nil {
 		return nil, err
 	}
@@ -167,16 +167,15 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 	return string(data), nil
 }
 
-func getGitRepo(repoPath string) (string, error) {
-	gitConfigFilePath := repoPath + "/" + ".git/config"
-	gitConfigFile, err := os.Open(gitConfigFilePath)
+func getGitRepo(gitConfigPath string) (string, error) {
+	gitConfigFile, err := os.Open(gitConfigPath)
 	if err != nil {
 		return "", err
 	}
 
 	defer gitConfigFile.Close()
 
-	gitRepoRegexp := regexp.MustCompile(`url = https:\/\/(?P<name>github.com\/(navikt|nais)\/.+)\.git`)
+	gitRepoRegexp := regexp.MustCompile(`url = https:\/\/(?P<name>github\.com\/(navikt|nais).+)\.git`)
 
 	scanner := bufio.NewScanner(gitConfigFile)
 	for scanner.Scan() {

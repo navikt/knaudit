@@ -48,9 +48,9 @@ func Test_getGitRepo(t *testing.T) {
 		{
 			name: "",
 			args: args{
-				repoPath: ".",
+				repoPath: "testdata/knada-git-sync.config",
 			},
-			want:    "github.com/nais/knaudit",
+			want:    "github.com/navikt/knada-git-sync",
 			wantErr: false,
 		},
 	}
