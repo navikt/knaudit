@@ -17,7 +17,7 @@ func Test_extractDate(t *testing.T) {
 			args: args{
 				runID: "manual__2023-02-13T131127.5671880000-27f960c46",
 			},
-			want:    "2023-02-13T131127",
+			want:    "2023-02-13T13:11:27Z",
 			wantErr: false,
 		},
 	}
@@ -46,7 +46,7 @@ func Test_getGitRepo(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "",
+			name: "HTTP Git clone config",
 			args: args{
 				repoPath: "testdata/knada-git-sync.config",
 			},

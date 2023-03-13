@@ -15,6 +15,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -191,7 +192,13 @@ func extractDate(runID string) (string, error) {
 	if date == "" {
 		return "", fmt.Errorf("failed to extract from runID %v", runID)
 	}
-	return date, nil
+
+	parsedTime, err := time.Parse("2006-01-02T150405", date)
+	if err != nil {
+		return "", err
+	}
+
+	return parsedTime.Format(time.RFC3339), nil
 }
 
 func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
