@@ -180,7 +180,7 @@ func getGitRepo(gitConfigPath string) (string, error) {
 		fmt.Println(line)
 		if gitRepoRegexp.MatchString(line) {
 			repo := gitRepoRegexp.FindStringSubmatch(line)[1]
-			return strings.Replace(repo, ":", "/", 1), nil
+			return repo, nil
 		}
 	}
 
