@@ -171,13 +171,11 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	}
 
 	defer gitConfigFile.Close()
-
-	gitRepoRegexp := regexp.MustCompile(`url = https:\/\/(?P<name>github\.com\/(navikt|nais).+)\.git`)
+	gitRepoRegexp := regexp.MustCompile(`(?P<name>github\.com\/(navikt|nais)\/.+)`)
 
 	scanner := bufio.NewScanner(gitConfigFile)
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(line)
 		if gitRepoRegexp.MatchString(line) {
 			repo := gitRepoRegexp.FindStringSubmatch(line)[1]
 			return repo, nil
