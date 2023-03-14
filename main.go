@@ -6,22 +6,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/esapi"
-	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/joho/godotenv"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/elastic/go-elasticsearch/esapi"
+	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/joho/godotenv"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
+	log.SetFormatter(&log.JSONFormatter{})
+
 	localEnv := godotenv.Load(".env") == nil
 	if localEnv {
-		fmt.Println(".env file found, application is configured to run locally.")
+		log.Info(".env file found, application is configured to run locally.")
 	}
 
 	elasticSearchClient, err := configureElasticSearch(localEnv)
@@ -228,8 +232,9 @@ func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]s
 		if err := json.NewDecoder(res.Body).Decode(&bodyMap); err != nil {
 			return fmt.Errorf("error parsing the response body: %s", err)
 		} else {
-			fmt.Printf("[%s] %s; version=%d", res.Status(), bodyMap["result"], int(bodyMap["_version"].(float64)))
+			log.Infof("[%s] %s", res.Status(), bodyMap["result"])
 		}
 	}
+
 	return nil
 }
