@@ -1,11 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  annotations:
   labels:
-    dag_id: test-k8s-exec
-    run_id: manual__2023-02-13T131127.5671880000-27f960c46
     task_id: test
+    dag_id: k8s_knaudit_example
+    run_id: manual__2023-03-13T133337.5671880000-27f960c46
   name: knaudit
 spec:
   initContainers:
@@ -17,7 +16,7 @@ spec:
     command:
     - /bin/sh
     - /git-clone.sh
-    image: navikt/knada-git-sync:2022-12-08-aaa15ba
+    image: europe-west1-docker.pkg.dev/knada-gcp/knada/git-sync:2023-03-09-bfc0f3e
     name: git-clone
     volumeMounts:
     - mountPath: /dags
@@ -33,7 +32,7 @@ spec:
           fieldPath : metadata.namespace
     - name: ELASTICSEARCH_URL
       value: https://log-ingest.adeo.no
-    - name: ELASTICSEAERCH_INDEX
+    - name: ELASTICSEARCH_INDEX
       value: tjenestekall-knada-airflow-run-audit
     - name: CA_CERT_PATH
       value: /etc/pki/tls/certs/ca-bundle.crt
@@ -51,7 +50,12 @@ spec:
       valueFrom :
         fieldRef :
           fieldPath : metadata.labels['task_id']
-    image: ghcr.io/nais/knaudit:v1
+    - name: AIRFLOW_DB_URL
+      valueFrom:
+        secretKeyRef:
+          name: airflow-db
+          key: connection
+    image: europe-west1-docker.pkg.dev/knada-gcp/knada/knaudit:2023-03-13-2cc53c1
     imagePullPolicy: Always
     volumeMounts:
     - mountPath: /dags
@@ -60,11 +64,10 @@ spec:
       name: ca-bundle-pem
       readOnly: true
       subPath: ca-bundle.pem
-  imagePullSecrets:
-  - name: ghcr-credentials
   securityContext:
     fsGroup: 0
     runAsUser: 50000
+    runAsNonRoot: true
   volumes:
   - emptyDir: {}
     name: dags-data
