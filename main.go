@@ -97,6 +97,11 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
+	auditData["git_branch"], err = getGitBranch(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
 	auditData["git_repo"], err = getGitRepo(repoPath + "/" + ".git/config")
 	if err != nil {
 		return nil, err
@@ -159,13 +164,34 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 
 	defer file.Close()
 
-	list, _ := file.Readdirnames(1)
-	name := list[0]
+	names, err := file.Readdirnames(1)
+	if err != nil {
+		return "", err
+	}
+
+	name := names[0]
 	data, err := os.ReadFile(gcfilePath + "/" + name)
 	if err != nil {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func getGitBranch(repoPath string) (string, error) {
+	gcfilePath := repoPath + "/" + ".git/refs/heads"
+	file, err := os.Open(gcfilePath)
+	if err != nil {
+		return "", err
+	}
+
+	defer file.Close()
+
+	names, err := file.Readdirnames(1)
+	if err != nil {
+		return "", err
+	}
+
+	return names[0], nil
 }
 
 func getGitRepo(gitConfigPath string) (string, error) {
