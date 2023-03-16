@@ -107,10 +107,7 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
-	auditData["@timestamp"], err = extractDate(auditData["run_id"])
-	if err != nil {
-		return nil, err
-	}
+	auditData["@timestamp"] = time.Now().Format(time.RFC3339)
 
 	return auditData, nil
 }
@@ -213,21 +210,6 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	}
 
 	return "", scanner.Err()
-}
-
-func extractDate(runID string) (string, error) {
-	regex := regexp.MustCompile("\\d{4}-\\d{2}-\\d{2}T\\d{6}")
-	date := regex.FindString(runID)
-	if date == "" {
-		return "", fmt.Errorf("failed to extract from runID %v", runID)
-	}
-
-	parsedTime, err := time.Parse("2006-01-02T150405", date)
-	if err != nil {
-		return "", err
-	}
-
-	return parsedTime.Format(time.RFC3339), nil
 }
 
 func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
