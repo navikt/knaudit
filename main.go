@@ -30,17 +30,20 @@ func main() {
 
 	elasticSearchClient, err := configureElasticSearch(localEnv)
 	if err != nil {
+		log.Error(err)
 		panic(err)
 	}
 
 	auditData, err := getAuditData()
 	if err != nil {
+		log.Error(err)
 		panic(err)
 	}
 
 	index := os.Getenv("ELASTICSEARCH_INDEX")
 	err = sendToKibana(elasticSearchClient, index, auditData)
 	if err != nil {
+		log.Error(err)
 		panic(err)
 	}
 }
@@ -89,6 +92,9 @@ func getAuditData() (map[string]string, error) {
 	auditData["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
 
 	triggeredBy, err := getTriggeredBy(auditData["dag_id"], auditData["run_id"])
+	if err != nil {
+		return nil, err
+	}
 	auditData["triggered_by"] = triggeredBy
 
 	repoPath := os.Getenv("GIT_REPO_PATH")
@@ -138,7 +144,7 @@ func getTriggeredBy(dagID, runID string) (string, error) {
 	dbURL := os.Getenv("AIRFLOW_DB_URL")
 	db, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	defer db.Close(ctx)
 
@@ -146,7 +152,10 @@ func getTriggeredBy(dagID, runID string) (string, error) {
 	err = db.QueryRow(context.Background(), `SELECT owner FROM public.log WHERE dag_id = $1 
                                AND event = 'trigger' ORDER BY dttm DESC LIMIT 1;`, dagID).Scan(&owner)
 	if err != nil {
-		panic(err)
+		if err == pgx.ErrNoRows {
+			return "", fmt.Errorf("ingen eier for DAG='%v' funnet", dagID)
+		}
+		return "", err
 	}
 
 	return owner, nil
