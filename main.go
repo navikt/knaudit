@@ -2,19 +2,17 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	go_ora "github.com/sijms/go-ora"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/esapi"
-	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -28,48 +26,58 @@ func main() {
 		log.Info(".env file found, application is configured to run locally.")
 	}
 
-	elasticSearchClient, err := configureElasticSearch(localEnv)
-	if err != nil {
-		log.Error(err)
-		panic(err)
-	}
-
 	auditData, err := getAuditData()
 	if err != nil {
 		log.Error(err)
 		panic(err)
 	}
 
-	index := os.Getenv("ELASTICSEARCH_INDEX")
-	err = sendToKibana(elasticSearchClient, index, auditData)
+	marshalAuditData, err := json.Marshal(auditData)
+	if err != nil {
+		log.Error(err)
+		panic(err)
+	}
+
+	log.Info(string(marshalAuditData))
+
+	err = sendAuditDataToDVH(string(marshalAuditData))
 	if err != nil {
 		log.Error(err)
 		panic(err)
 	}
 }
 
-func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
-	cfg := elasticsearch.Config{
-		Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
-	}
-
-	if localEnv {
-		cfg.APIKey = os.Getenv("ELASTIC_API_KEY")
-	} else {
-		cafilePath := os.Getenv("CA_CERT_PATH")
-		cacertBytes, err := os.ReadFile(cafilePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open ca certificate file %v: %v", cafilePath, err)
-		}
-		cfg.CACert = cacertBytes
-	}
-
-	client, err := elasticsearch.NewClient(cfg)
+func sendAuditDataToDVH(blob string) error {
+	connection, err := go_ora.NewConnection(os.Getenv("ORACLE_URL"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create elastic search client %v", err)
+		return err
 	}
 
-	return client, nil
+	err = connection.Open()
+	if err != nil {
+		return err
+	}
+
+	defer connection.Close()
+
+	// TODO: Bytt ut mytable, og blobberino med riktig navn
+	sqlString := fmt.Sprintf("insert into mytable(blobberino) values (to_clob('some magic here'));", blob)
+	stmt := go_ora.NewStmt(sqlString, connection)
+	result, err := stmt.Exec([]driver.Value{})
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected != 1 {
+		return fmt.Errorf("there where %v rows affected, should only be 1", rowsAffected)
+	}
+
+	return nil
 }
 
 func getAuditData() (map[string]string, error) {
@@ -219,39 +227,4 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	}
 
 	return "", scanner.Err()
-}
-
-func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
-	reqBody, err := json.Marshal(auditData)
-	if err != nil {
-		return fmt.Errorf("error marshaling audit data: %s", err)
-	}
-
-	documentID := uuid.New().String()
-	req := esapi.IndexRequest{
-		Index:      index,
-		DocumentID: documentID,
-		Body:       bytes.NewReader(reqBody),
-		Refresh:    "true",
-	}
-
-	res, err := req.Do(context.Background(), es)
-	if err != nil {
-		return fmt.Errorf("error getting response: %s", err)
-	}
-
-	defer res.Body.Close()
-
-	if res.IsError() {
-		return fmt.Errorf("[%s] error indexing document ID=%v", res.Status(), documentID)
-	} else {
-		var bodyMap map[string]interface{}
-		if err := json.NewDecoder(res.Body).Decode(&bodyMap); err != nil {
-			return fmt.Errorf("error parsing the response body: %s", err)
-		} else {
-			log.Infof("[%s] %s", res.Status(), bodyMap["result"])
-		}
-	}
-
-	return nil
 }
