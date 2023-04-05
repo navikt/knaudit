@@ -41,15 +41,15 @@ spec:
     - name: AIRFLOW_DAG_ID
       valueFrom :
         fieldRef :
-          fieldPath : metadata.labels['dag_id']
+          fieldPath : metadata.annotations['dag_id']
     - name: AIRFLOW_RUN_ID
       valueFrom :
         fieldRef :
-          fieldPath : metadata.labels['run_id']
+          fieldPath : metadata.annotations['run_id']
     - name: AIRFLOW_TASK_ID
       valueFrom :
         fieldRef :
-          fieldPath : metadata.labels['task_id']
+          fieldPath : metadata.annotations['task_id']
     - name: AIRFLOW_DB_URL
       valueFrom:
         secretKeyRef:
