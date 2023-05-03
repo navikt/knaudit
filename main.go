@@ -2,19 +2,17 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	go_ora "github.com/sijms/go-ora/v2"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/elastic/go-elasticsearch/esapi"
-	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -28,48 +26,57 @@ func main() {
 		log.Info(".env file found, application is configured to run locally.")
 	}
 
-	elasticSearchClient, err := configureElasticSearch(localEnv)
-	if err != nil {
-		log.Error(err)
-		panic(err)
-	}
-
 	auditData, err := getAuditData()
 	if err != nil {
 		log.Error(err)
 		panic(err)
 	}
 
-	index := os.Getenv("ELASTICSEARCH_INDEX")
-	err = sendToKibana(elasticSearchClient, index, auditData)
+	marshalAuditData, err := json.Marshal(auditData)
+	if err != nil {
+		log.Error(err)
+		panic(err)
+	}
+
+	log.Info(string(marshalAuditData))
+
+	err = sendAuditDataToDVH(string(marshalAuditData))
 	if err != nil {
 		log.Error(err)
 		panic(err)
 	}
 }
 
-func configureElasticSearch(localEnv bool) (*elasticsearch.Client, error) {
-	cfg := elasticsearch.Config{
-		Addresses: []string{os.Getenv("ELASTICSEARCH_URL")},
-	}
-
-	if localEnv {
-		cfg.APIKey = os.Getenv("ELASTIC_API_KEY")
-	} else {
-		cafilePath := os.Getenv("CA_CERT_PATH")
-		cacertBytes, err := os.ReadFile(cafilePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open ca certificate file %v: %v", cafilePath, err)
-		}
-		cfg.CACert = cacertBytes
-	}
-
-	client, err := elasticsearch.NewClient(cfg)
+func sendAuditDataToDVH(blob string) error {
+	connection, err := go_ora.NewConnection(os.Getenv("ORACLE_URL"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create elastic search client %v", err)
+		return fmt.Errorf("failed creating new connection to Oracle: %v", err)
 	}
 
-	return client, nil
+	err = connection.Open()
+	if err != nil {
+		return fmt.Errorf("failed opening connection to Oracle: %v", err)
+	}
+
+	defer connection.Close()
+
+	stmt := go_ora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
+	stmt.AddParam("1", &blob, 0, go_ora.Input)
+	result, err := stmt.Exec([]driver.Value{})
+	if err != nil {
+		return fmt.Errorf("failed executing statement: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected != 1 {
+		return fmt.Errorf("there where %v rows affected, should only be 1", rowsAffected)
+	}
+
+	return nil
 }
 
 func getAuditData() (map[string]string, error) {
@@ -113,7 +120,7 @@ func getAuditData() (map[string]string, error) {
 		return nil, err
 	}
 
-	auditData["@timestamp"] = time.Now().Format(time.RFC3339)
+	auditData["timestamp"] = time.Now().Format(time.RFC3339)
 
 	return auditData, nil
 }
@@ -180,7 +187,8 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+
+	return strings.ReplaceAll(string(data), "\n", ""), nil
 }
 
 func getGitBranch(repoPath string) (string, error) {
@@ -219,39 +227,4 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	}
 
 	return "", scanner.Err()
-}
-
-func sendToKibana(es *elasticsearch.Client, index string, auditData map[string]string) error {
-	reqBody, err := json.Marshal(auditData)
-	if err != nil {
-		return fmt.Errorf("error marshaling audit data: %s", err)
-	}
-
-	documentID := uuid.New().String()
-	req := esapi.IndexRequest{
-		Index:      index,
-		DocumentID: documentID,
-		Body:       bytes.NewReader(reqBody),
-		Refresh:    "true",
-	}
-
-	res, err := req.Do(context.Background(), es)
-	if err != nil {
-		return fmt.Errorf("error getting response: %s", err)
-	}
-
-	defer res.Body.Close()
-
-	if res.IsError() {
-		return fmt.Errorf("[%s] error indexing document ID=%v", res.Status(), documentID)
-	} else {
-		var bodyMap map[string]interface{}
-		if err := json.NewDecoder(res.Body).Decode(&bodyMap); err != nil {
-			return fmt.Errorf("error parsing the response body: %s", err)
-		} else {
-			log.Infof("[%s] %s", res.Status(), bodyMap["result"])
-		}
-	}
-
-	return nil
 }
