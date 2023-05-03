@@ -188,7 +188,8 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+
+	return strings.ReplaceAll(string(data), "\n", ""), nil
 }
 
 func getGitBranch(repoPath string) (string, error) {
