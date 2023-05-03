@@ -60,9 +60,8 @@ func sendAuditDataToDVH(blob string) error {
 
 	defer connection.Close()
 
-	// TODO: Bytt ut mytable, og blobberino med riktig navn
-	sqlString := fmt.Sprintf("insert into mytable(blobberino) values (to_clob('some magic here'));", blob)
-	stmt := go_ora.NewStmt(sqlString, connection)
+	stmt := go_ora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
+	stmt.AddParam("1", &blob, 0, go_ora.Input)
 	result, err := stmt.Exec([]driver.Value{})
 	if err != nil {
 		return fmt.Errorf("failed executing statement: %v", err)
