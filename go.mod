@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/joho/godotenv v1.5.1
-	github.com/sijms/go-ora v1.3.2
+	github.com/sijms/go-ora/v2 v2.7.2
 	github.com/sirupsen/logrus v1.9.0
 )
 

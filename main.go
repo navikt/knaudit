@@ -6,7 +6,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	go_ora "github.com/sijms/go-ora"
+	go_ora "github.com/sijms/go-ora/v2"
 	"net"
 	"os"
 	"regexp"
