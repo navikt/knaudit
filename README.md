@@ -2,7 +2,7 @@
 
 > KNADA audit logger
 
-Sender loggdata basert på Kubernetes og Airflow-jobber til Kibana.
+Sender loggdata basert på Kubernetes og Airflow-jobber til Datavarehus.
 
 Følgende data logges:
 
