@@ -50,12 +50,12 @@ func main() {
 func sendAuditDataToDVH(blob string) error {
 	connection, err := go_ora.NewConnection(os.Getenv("ORACLE_URL"))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed creating new connection to Oracle: %v", err)
 	}
 
 	err = connection.Open()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed opening connection to Oracle: %v", err)
 	}
 
 	defer connection.Close()
@@ -65,7 +65,7 @@ func sendAuditDataToDVH(blob string) error {
 	stmt := go_ora.NewStmt(sqlString, connection)
 	result, err := stmt.Exec([]driver.Value{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed executing statement: %v", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
