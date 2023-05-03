@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
+  annotations:
     task_id: test
     dag_id: k8s_knaudit_example
-    run_id: manual__2023-03-13T133337.5671880000-27f960c46
+    run_id: manual__2023-05-03T11:00:00+00:00
   name: knaudit
 spec:
   initContainers:
@@ -41,15 +41,15 @@ spec:
     - name: AIRFLOW_DAG_ID
       valueFrom :
         fieldRef :
-          fieldPath : metadata.labels['dag_id']
+          fieldPath : metadata.annotations['dag_id']
     - name: AIRFLOW_RUN_ID
       valueFrom :
         fieldRef :
-          fieldPath : metadata.labels['run_id']
+          fieldPath : metadata.annotations['run_id']
     - name: AIRFLOW_TASK_ID
       valueFrom :
         fieldRef :
-          fieldPath : metadata.labels['task_id']
+          fieldPath : metadata.annotations['task_id']
     - name: AIRFLOW_DB_URL
       valueFrom:
         secretKeyRef:
