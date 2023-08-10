@@ -6,12 +6,13 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	go_ora "github.com/sijms/go-ora/v2"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	goora "github.com/sijms/go-ora/v2"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
@@ -48,7 +49,7 @@ func main() {
 }
 
 func sendAuditDataToDVH(blob string) error {
-	connection, err := go_ora.NewConnection(os.Getenv("ORACLE_URL"))
+	connection, err := goora.NewConnection(os.Getenv("ORACLE_URL"))
 	if err != nil {
 		return fmt.Errorf("failed creating new connection to Oracle: %v", err)
 	}
@@ -60,8 +61,8 @@ func sendAuditDataToDVH(blob string) error {
 
 	defer connection.Close()
 
-	stmt := go_ora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
-	stmt.AddParam("1", &blob, 0, go_ora.Input)
+	stmt := goora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
+	stmt.AddParam("1", &blob, 0, goora.Input)
 	result, err := stmt.Exec([]driver.Value{})
 	if err != nil {
 		return fmt.Errorf("failed executing statement: %v", err)
