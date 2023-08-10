@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -157,7 +158,7 @@ func getTriggeredBy(dagID, runID string) (string, error) {
 	err = db.QueryRow(context.Background(), `SELECT owner FROM public.log WHERE dag_id = $1 
                                AND event = 'trigger' ORDER BY dttm DESC LIMIT 1;`, dagID).Scan(&owner)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("ingen eier for DAG='%v' funnet", dagID)
 		}
 		return "", err
