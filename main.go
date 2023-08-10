@@ -29,22 +29,19 @@ func main() {
 
 	auditData, err := getAuditData()
 	if err != nil {
-		log.Error(err)
-		panic(err)
+		log.Fatal(err)
 	}
 
 	marshalAuditData, err := json.Marshal(auditData)
 	if err != nil {
-		log.Error(err)
-		panic(err)
+		log.Fatal(err)
 	}
 
 	log.Info(string(marshalAuditData))
 
 	err = sendAuditDataToDVH(string(marshalAuditData))
 	if err != nil {
-		log.Error(err)
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
