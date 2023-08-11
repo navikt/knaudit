@@ -5,13 +5,15 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
-	go_ora "github.com/sijms/go-ora/v2"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	goora "github.com/sijms/go-ora/v2"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
@@ -21,59 +23,52 @@ import (
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
-	localEnv := godotenv.Load(".env") == nil
-	if localEnv {
-		log.Info(".env file found, application is configured to run locally.")
+	if err := godotenv.Load(".env"); err == nil {
+		log.Info(".env file found, application has been configured to run locally.")
 	}
 
 	auditData, err := getAuditData()
 	if err != nil {
-		log.Error(err)
-		panic(err)
+		log.Fatal(err)
 	}
 
 	marshalAuditData, err := json.Marshal(auditData)
 	if err != nil {
-		log.Error(err)
-		panic(err)
+		log.Fatal(err)
 	}
 
 	log.Info(string(marshalAuditData))
 
-	err = sendAuditDataToDVH(string(marshalAuditData))
-	if err != nil {
-		log.Error(err)
-		panic(err)
+	if err := sendAuditDataToDVH(string(marshalAuditData)); err != nil {
+		log.Fatal(err)
 	}
 }
 
 func sendAuditDataToDVH(blob string) error {
-	connection, err := go_ora.NewConnection(os.Getenv("ORACLE_URL"))
+	connection, err := goora.NewConnection(os.Getenv("ORACLE_URL"))
 	if err != nil {
 		return fmt.Errorf("failed creating new connection to Oracle: %v", err)
 	}
 
-	err = connection.Open()
-	if err != nil {
+	if err = connection.Open(); err != nil {
 		return fmt.Errorf("failed opening connection to Oracle: %v", err)
 	}
 
 	defer connection.Close()
 
-	stmt := go_ora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
-	stmt.AddParam("1", &blob, 0, go_ora.Input)
+	stmt := goora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
+	if err := stmt.AddParam("1", &blob, 0, goora.Input); err != nil {
+		return err
+	}
+
 	result, err := stmt.Exec([]driver.Value{})
 	if err != nil {
 		return fmt.Errorf("failed executing statement: %v", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
+	_, err = result.RowsAffected()
 	if err != nil {
 		return err
-	}
-
-	if rowsAffected != 1 {
-		return fmt.Errorf("there where %v rows affected, should only be 1", rowsAffected)
 	}
 
 	return nil
@@ -98,13 +93,13 @@ func getAuditData() (map[string]string, error) {
 	auditData["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
 	auditData["task_id"] = os.Getenv("AIRFLOW_TASK_ID")
 
-	triggeredBy, err := getTriggeredBy(auditData["dag_id"], auditData["run_id"])
+	auditData["triggered_by"], err = getTriggeredBy(auditData["dag_id"], auditData["run_id"])
 	if err != nil {
 		return nil, err
 	}
-	auditData["triggered_by"] = triggeredBy
 
 	repoPath := os.Getenv("GIT_REPO_PATH")
+
 	auditData["commit_sha1"], err = getGitCommitSHA1(repoPath)
 	if err != nil {
 		return nil, err
@@ -131,6 +126,7 @@ func getLocalIP() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	for _, address := range addrs {
 		// check the address type and if it is not a loopback then return it
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
@@ -139,6 +135,7 @@ func getLocalIP() (string, error) {
 			}
 		}
 	}
+
 	return "", fmt.Errorf("no ip address found")
 }
 
@@ -156,12 +153,12 @@ func getTriggeredBy(dagID, runID string) (string, error) {
 	defer db.Close(ctx)
 
 	var owner string
-	err = db.QueryRow(context.Background(), `SELECT owner FROM public.log WHERE dag_id = $1 
-                               AND event = 'trigger' ORDER BY dttm DESC LIMIT 1;`, dagID).Scan(&owner)
-	if err != nil {
-		if err == pgx.ErrNoRows {
+	sqlQuery := `SELECT owner FROM public.log WHERE dag_id = $1 AND event = 'trigger' ORDER BY dttm DESC LIMIT 1;`
+	if err = db.QueryRow(context.Background(), sqlQuery, dagID).Scan(&owner); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("ingen eier for DAG='%v' funnet", dagID)
 		}
+
 		return "", err
 	}
 
@@ -174,7 +171,6 @@ func getGitCommitSHA1(repoPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	defer file.Close()
 
 	names, err := file.Readdirnames(1)
@@ -197,7 +193,6 @@ func getGitBranch(repoPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	defer file.Close()
 
 	names, err := file.Readdirnames(1)
@@ -215,6 +210,7 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	}
 
 	defer gitConfigFile.Close()
+
 	gitRepoRegexp := regexp.MustCompile(`(?P<name>github\.com\/(navikt|nais)\/.+)`)
 
 	scanner := bufio.NewScanner(gitConfigFile)
