@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
-	goora "github.com/sijms/go-ora/v2"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+	goora "github.com/sijms/go-ora/v2"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -57,19 +56,13 @@ func sendAuditDataToDVH(blob string) error {
 	defer connection.Close()
 
 	stmt := goora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
-	if err := stmt.AddParam("1", &blob, 0, goora.Input); err != nil {
-		return err
-	}
+	defer stmt.Close()
 
-	result, err := stmt.Exec([]driver.Value{})
+	rows, err := stmt.Query([]driver.Value{"1"})
 	if err != nil {
 		return fmt.Errorf("failed executing statement: %v", err)
 	}
-
-	_, err = result.RowsAffected()
-	if err != nil {
-		return err
-	}
+	defer rows.Close()
 
 	return nil
 }
