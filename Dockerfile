@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as builder
+FROM golang:1.21.3-alpine as builder
 ENV GOOS=linux
 WORKDIR /src
 COPY go.sum go.sum
@@ -9,5 +9,5 @@ RUN go build .
 
 FROM alpine:3
 WORKDIR /app
-COPY --from=builder /src/knaudit /app/kaudit
-CMD ["/app/kaudit"]
+COPY --from=builder /src/knaudit /app/knaudit
+CMD ["/app/knaudit"]

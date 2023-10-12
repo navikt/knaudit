@@ -1,6 +1,6 @@
 module github.com/nais/knaudit
 
-go 1.21
+go 1.21.3
 
 require (
 	github.com/jackc/pgx/v5 v5.4.3
