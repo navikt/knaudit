@@ -58,7 +58,7 @@ func sendAuditDataToDVH(blob string) error {
 	stmt := goora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
 	defer stmt.Close()
 
-	rows, err := stmt.Query([]driver.Value{"1"})
+	rows, err := stmt.Query([]driver.Value{blob})
 	if err != nil {
 		return fmt.Errorf("failed executing statement: %v", err)
 	}
