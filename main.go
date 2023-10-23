@@ -39,7 +39,7 @@ func main() {
 	log.Info(string(marshalAuditData))
 
 	if err := sendAuditDataToDVH(string(marshalAuditData)); err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 }
 
