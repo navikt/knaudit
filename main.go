@@ -52,7 +52,7 @@ func main() {
 		log.WithError(err).Error("reading response body")
 	}
 
-	if res.StatusCode > 299 {
+	if res.StatusCode != http.StatusOK {
 		log.Errorf("posting knaudit data to proxy returned status code %v, response: %v", res.StatusCode, string(bodyBytes))
 	}
 }
