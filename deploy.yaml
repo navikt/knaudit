@@ -30,10 +30,8 @@ spec:
       valueFrom :
         fieldRef :
           fieldPath : metadata.namespace
-    - name: ELASTICSEARCH_URL
-      value: https://log-ingest.adeo.no
-    - name: ELASTICSEARCH_INDEX
-      value: tjenestekall-knada-airflow-run-audit
+    - name: KNAUDIT_PROXY_URL
+      value: http://knaudit-proxy.knada-system.svc.cluster.local
     - name: CA_CERT_PATH
       value: /etc/pki/tls/certs/ca-bundle.crt
     - name: GIT_REPO_PATH
