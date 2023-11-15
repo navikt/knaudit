@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -35,18 +36,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	buf := &bytes.Buffer{}
-	if err := json.NewEncoder(buf).Encode(auditData); err != nil {
-		log.WithError(err).Fatal("encoding audit data")
+	marshalledAuditData, err := json.Marshal(auditData)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", buf)
+	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", bytes.NewBuffer(marshalledAuditData))
 	if err != nil {
 		log.WithError(err).Error("posting knaudit data to proxy")
 	}
+	defer res.Body.Close()
+
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.WithError(err).Error("reading response body")
+	}
 
 	if res.StatusCode > 299 {
-		log.Errorf("posting knaudit data to proxy returned status code %v", res.StatusCode)
+		log.Errorf("posting knaudit data to proxy returned status code %v, response: %v", res.StatusCode, string(bodyBytes))
 	}
 }
 
