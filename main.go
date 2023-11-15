@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
-	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -15,12 +16,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
-	goora "github.com/sijms/go-ora/v2"
 	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
+
+	httpClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
 
 	if err := godotenv.Load(".env"); err == nil {
 		log.Info(".env file found, application has been configured to run locally.")
@@ -31,40 +35,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	marshalAuditData, err := json.Marshal(auditData)
+	buf := &bytes.Buffer{}
+	if err := json.NewEncoder(buf).Encode(auditData); err != nil {
+		log.WithError(err).Fatal("encoding audit data")
+	}
+
+	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", buf)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Error("posting knaudit data to proxy")
 	}
 
-	log.Info(string(marshalAuditData))
-
-	if err := sendAuditDataToDVH(string(marshalAuditData)); err != nil {
-		log.Error(err)
+	if res.StatusCode > 299 {
+		log.Errorf("posting knaudit data to proxy returned status code %v", res.StatusCode)
 	}
-}
-
-func sendAuditDataToDVH(blob string) error {
-	connection, err := goora.NewConnection(os.Getenv("ORACLE_URL"))
-	if err != nil {
-		return fmt.Errorf("failed creating new connection to Oracle: %v", err)
-	}
-
-	if err = connection.Open(); err != nil {
-		return fmt.Errorf("failed opening connection to Oracle: %v", err)
-	}
-
-	defer connection.Close()
-
-	stmt := goora.NewStmt("begin dvh_vpd_adm.als_api.log(p_event_document => :1); end;", connection)
-	defer stmt.Close()
-
-	rows, err := stmt.Query([]driver.Value{blob})
-	if err != nil {
-		return fmt.Errorf("failed executing statement: %v", err)
-	}
-	defer rows.Close()
-
-	return nil
 }
 
 func getAuditData() (map[string]string, error) {
