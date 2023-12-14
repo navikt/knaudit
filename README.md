@@ -2,7 +2,7 @@
 
 > KNADA audit logger
 
-Sender loggdata basert på Kubernetes og Airflow-jobber til Datavarehus.
+Sender loggdata basert på Kubernetes og Airflow-jobber til Datavarehus via [Knaudit proxy](https://github.com/navikt/knaudit-proxy/).
 
 Følgende data logges:
 
