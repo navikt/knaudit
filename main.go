@@ -33,12 +33,12 @@ func main() {
 
 	auditData, err := getAuditData()
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 
 	marshalledAuditData, err := json.Marshal(auditData)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
 	}
 
 	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", bytes.NewBuffer(marshalledAuditData))
