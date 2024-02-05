@@ -3,7 +3,7 @@ module github.com/nais/knaudit
 go 1.21
 
 require (
-	github.com/jackc/pgx/v5 v5.5.2
+	github.com/jackc/pgx/v5 v5.5.3
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.9.3
 )
