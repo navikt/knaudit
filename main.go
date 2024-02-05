@@ -61,16 +61,12 @@ func getAuditData() (map[string]string, error) {
 	var err error
 	auditData := make(map[string]string)
 
-	auditData["hostname"], err = os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
 	auditData["ip"], err = getLocalIP()
 	if err != nil {
 		return nil, err
 	}
 
+	auditData["hostname"] = os.Getenv("POD_NAME")
 	auditData["namespace"] = os.Getenv("NAMESPACE")
 	auditData["dag_id"] = os.Getenv("AIRFLOW_DAG_ID")
 	auditData["run_id"] = os.Getenv("AIRFLOW_RUN_ID")
