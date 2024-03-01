@@ -27,7 +27,6 @@ jobs:
 
   build:
     name: Build image
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
