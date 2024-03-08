@@ -34,26 +34,31 @@ func main() {
 	auditData, err := getAuditData()
 	if err != nil {
 		log.Error(err)
+		return
 	}
 
 	marshalledAuditData, err := json.Marshal(auditData)
 	if err != nil {
 		log.Error(err)
+		return
 	}
 
 	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", bytes.NewBuffer(marshalledAuditData))
 	if err != nil {
 		log.WithError(err).Error("posting knaudit data to proxy")
+		return
 	}
 	defer res.Body.Close()
 
 	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		log.WithError(err).Error("reading response body")
+		return
 	}
 
 	if res.StatusCode != http.StatusOK {
 		log.Errorf("posting knaudit data to proxy returned status code %v, response: %v", res.StatusCode, string(bodyBytes))
+		return
 	}
 }
 
