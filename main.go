@@ -20,6 +20,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var retryDelays = []int{1, 3, 5}
+
 func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
@@ -43,22 +45,12 @@ func main() {
 		return
 	}
 
-	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", bytes.NewBuffer(marshalledAuditData))
-	if err != nil {
-		log.WithError(err).Error("posting knaudit data to proxy")
-		return
-	}
-	defer res.Body.Close()
-
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		log.WithError(err).Error("reading response body")
-		return
-	}
-
-	if res.StatusCode != http.StatusOK {
-		log.Errorf("posting knaudit data to proxy returned status code %v, response: %v", res.StatusCode, string(bodyBytes))
-		return
+	for i := 0; i < len(retryDelays); i++ {
+		if err := postAuditData(httpClient, marshalledAuditData); err == nil {
+			break
+		}
+		time.Sleep(time.Second * time.Duration(retryDelays[i]))
+		log.Info("retrying audit data post to knaudit-proxy...")
 	}
 }
 
@@ -207,4 +199,26 @@ func getGitRepo(gitConfigPath string) (string, error) {
 	}
 
 	return "", scanner.Err()
+}
+
+func postAuditData(httpClient *http.Client, marshalledAuditData []byte) error {
+	res, err := httpClient.Post(fmt.Sprintf("%v/report", os.Getenv("KNAUDIT_PROXY_URL")), "application/json", bytes.NewBuffer(marshalledAuditData))
+	if err != nil {
+		log.WithError(err).Error("posting knaudit data to proxy")
+		return err
+	}
+	defer res.Body.Close()
+
+	bodyBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.WithError(err).Error("reading response body")
+		return err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		log.Errorf("posting knaudit data to proxy returned status code %v, response: %v", res.StatusCode, string(bodyBytes))
+		return err
+	}
+
+	return nil
 }
