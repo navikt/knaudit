@@ -129,7 +129,7 @@ func getTriggeredBy(dagID, runID string) (string, error) {
 	defer db.Close(ctx)
 
 	var owner string
-	sqlQuery := `SELECT owner FROM public.log WHERE dag_id = $1 AND event = 'trigger' ORDER BY dttm DESC LIMIT 1;`
+	sqlQuery := `SELECT owner FROM public.log WHERE dag_id = $1 AND event in ('trigger','cli_task_run') ORDER BY dttm DESC LIMIT 1;`
 	if err = db.QueryRow(context.Background(), sqlQuery, dagID).Scan(&owner); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return "", fmt.Errorf("ingen eier for DAG='%v' funnet", dagID)
