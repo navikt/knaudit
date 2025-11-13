@@ -1,6 +1,6 @@
 module github.com/nais/knaudit
 
-go 1.23.0
+go 1.25.4
 
 toolchain go1.24.1
 
